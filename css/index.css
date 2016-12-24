@@ -1,10 +1,11 @@
 * {
     font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
     margin: 0;
+    color: white;
 }
 
 body {
-    background-color: #f5f8fa;
+    background-color: #293742;
 }
 
 .header {
@@ -22,6 +23,7 @@ body {
     /* Should be kept up to date with index.html */
     width: 960px;
     height: 500px;
-    
-    border: 1px solid #BFCCD6;
+
+    border: 2px solid #182026;
+    background-color: #394B59;
 }

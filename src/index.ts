@@ -104,13 +104,15 @@ function setUpHoverListener(graph: Graph, conversions: Conversions): void {
     const { graphToSvg, svgToGraph } = conversions;
     svg.append("circle")
         .classed("closest-point-highlight", true)
-        .attr("r", 4);
+        .attr("r", 10)
+        .attr("fill", "rgba(72, 176, 240, 0.75)");
     const updateClosestPointHighlight = (location: Location | null) => {
         const highlight = svg.select(".closest-point-highlight")
             .attr("visibility", location ? "visible" : "hidden");
         if (location) {
             const svgLocation = graphToSvg(location);
-            highlight.attr("cx", svgLocation.x)
+            highlight
+                .attr("cx", svgLocation.x)
                 .attr("cy", svgLocation.y);
         }
     }
