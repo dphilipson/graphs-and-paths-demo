@@ -1,3 +1,4 @@
+import { ResizeSensor } from "css-element-queries";
 import * as d3Request from "d3-request";
 import * as d3Selection from "d3-selection";
 import * as d3Shape from "d3-shape";
@@ -11,11 +12,12 @@ import Graph, {
 
 const d3 = { ...d3Selection, ...d3Request, ...d3Shape };
 
-const DATA_JSON_FILE = "data/twin_peaks_2_mile.json";
+interface Dimensions {
+    width: number;
+    height: number;
+}
 
-// Should be kept up to date with index.css.
-const SVG_WIDTH = 960;
-const SVG_HEIGHT = 500;
+const DATA_JSON_FILE = "data/twin_peaks_2_mile.json";
 
 const pathGenerator = d3.line<Location>()
     .x((location) => location.x)
@@ -39,133 +41,112 @@ function main(): void {
         }
         const { nodes, edges } = data;
         const graph = Graph.create(nodes, edges).withClosestPointMesh(25);
-        const { graphToSvg, svgToGraph } = makeCoordinateConversionFunctions(graph);
-        const pathExitSpeed = getPathExitSpeed(svgToGraph);
-        runDemo(svgElement, graph, svgToGraph, graphToSvg, pathExitSpeed);
+        const graphDimensions = getGraphDimensions(graph);
+        runDemo(svgElement, graph, graphDimensions);
     });
 }
 
-function makeCoordinateConversionFunctions(graph: Graph) {
-    const minX = Math.min(...graph.getAllNodes().map((node) => node.location.x));
-    const maxX = Math.max(...graph.getAllNodes().map((node) => node.location.x));
-    const minY = Math.min(...graph.getAllNodes().map((node) => node.location.y));
-    const maxY = Math.max(...graph.getAllNodes().map((node) => node.location.y));
-    const graphWidth = maxX - minX;
-    const graphHeight = maxY - minY;
-    const graphAspectRatio = graphWidth / graphHeight;
-    const svgAspectRatio = SVG_WIDTH / SVG_HEIGHT;
-    const graphToSvgRatio = graphAspectRatio > svgAspectRatio
-        ? graphHeight / SVG_HEIGHT
-        : graphWidth / SVG_WIDTH;
-    const svgCenter = { x: SVG_WIDTH / 2, y: SVG_HEIGHT / 2 };
+function getGraphDimensions(graph: Graph): Dimensions {
+    const nodes = graph.getAllNodes();
     return {
-        graphToSvg(location: Location): Location {
-            return {
-                x: svgCenter.x + location.x / graphToSvgRatio,
-                y: svgCenter.y + location.y / graphToSvgRatio,
-            };
-        },
-
-        svgToGraph(location: Location): Location {
-            return {
-                x: (location.x - svgCenter.x) * graphToSvgRatio,
-                y: (location.y - svgCenter.y) * graphToSvgRatio,
-            };
-        },
+        width: getSpan(nodes.map((node) => node.location.x)),
+        height: getSpan(nodes.map((node) => node.location.y)),
     };
 }
 
-function getPathExitSpeed(svgToGraph: (location: Location) => Location) {
-    // A path crossing the whole viewport on the diagonal should take this much time to disapear.
-    const diagonalExitTime = 10000;
-    const { x, y } = svgToGraph({ x: 0, y: 0 });
-    // Takes advantage of the fact that (0, 0) in graph coordinates is at the center of the svg.
-    const diagonalLength = 2 * Math.sqrt(x * x + y * y);
-    return diagonalLength / diagonalExitTime;
+function getSpan(xs: number[]): number {
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    xs.forEach((x) => {
+        min = Math.min(min, x);
+        max = Math.max(max, x);
+    });
+    return max - min;
 }
 
 function runDemo(
     svgElement: HTMLElement,
     graph: Graph,
-    svgToGraph: (location: Location) => Location,
-    graphToSvg: (location: Location) => Location,
-    pathExitSpeed: number,
+    graphDimensions: Dimensions,
 ) {
     let activePathStart: EdgePoint | null = null;
     let closestPoint: EdgePoint | null = null;
     let exitingPaths: Path[] = [];
+    let {
+        svgToGraph,
+        graphToSvg,
+    } = getConversionFunctions();
 
-    renderGraph();
-
-    let activePathStartElement = createActivePathStartElement();
-    let closestPointElement = createClosestPointElement();
-    let activePathElement = createActivePathElement();
-
-    update();
+    createSvgElements();
     setUpMouseListeners();
+    setUpResizeListener();
     startAnimationTicks();
 
-    function renderGraph(): void {
+    function getConversionFunctions() {
+        const { width: graphWidth, height: graphHeight } = graphDimensions;
+        const { clientWidth: svgWidth, clientHeight: svgHeight } = svgElement;
+        const graphAspectRatio = graphWidth / graphHeight;
+        const svgAspectRatio = svgWidth / svgHeight;
+        const graphToSvgRatio = graphAspectRatio > svgAspectRatio
+            ? graphHeight / svgHeight
+            : graphWidth / svgWidth;
+        const svgCenter = { x: svgWidth / 2, y: svgHeight / 2 };
+        return {
+            graphToSvg(location: Location): Location {
+                return {
+                    x: svgCenter.x + location.x / graphToSvgRatio,
+                    y: svgCenter.y + location.y / graphToSvgRatio,
+                };
+            },
+
+            svgToGraph(location: Location): Location {
+                return {
+                    x: (location.x - svgCenter.x) * graphToSvgRatio,
+                    y: (location.y - svgCenter.y) * graphToSvgRatio,
+                };
+            },
+        };
+    }
+
+    function createSvgElements(): void {
+        createGraphElement();
+        createActivePathStartElement();
+        createClosestPointElement();
+        createActivePathElement();
+    }
+
+    function createGraphElement(): void {
         d3.select(svgElement).append("g")
-            .classed("graph-group", true)
-            .selectAll(".edge")
-            .data(graph.getAllEdges())
-            .enter().append("path")
+            .classed("graph-group", true);
+        updateGraphElement();
+    }
+
+    function updateGraphElement(): void {
+        const edges = d3.select(".graph-group").selectAll(".edge")
+            .data(graph.getAllEdges());
+        edges.enter().append("path")
             .classed("edge", true)
             .attr("stroke", "#5C7080")
             .attr("stroke-width", 3)
             .attr("stroke-linecap", "round")
             .attr("stroke-linejoin", "round")
             .attr("fill", "none")
+            .merge(edges)
             .attr("d", (edge) => pathGenerator(edge.locations.map(graphToSvg)));
+        edges.exit().remove();
     }
 
-    function createActivePathStartElement() {
-        return d3.select(svgElement).append("circle")
+    function createActivePathStartElement(): void {
+        d3.select(svgElement).append("circle")
             .classed("active-path-start-highlight", true)
             .attr("r", 10)
             .attr("fill", "#D9822B")
             .attr("opacity", 0.75);
+        updateActivePathStartElement();
     }
 
-    function createClosestPointElement() {
-        return d3.select(svgElement).append("circle")
-            .classed("closest-point-highlight", true)
-            .attr("r", 10)
-            .attr("fill", "#FFB366")
-            .attr("opacity", 0.75);
-    }
-
-    function createActivePathElement() {
-        return d3.select(svgElement).append("path")
-            .classed("active-path", true)
-            .attr("stroke", "#D9822B")
-            .attr("stroke-width", 6)
-            .attr("stroke-linecap", "round")
-            .attr("stroke-linejoin", "round")
-            .attr("fill", "none")
-            .attr("opacity", 0.5);
-    }
-
-    function update(): void {
-        updateClosestPointHighlight();
-        updateActivePathHighlight();
-        updateActivePath();
-        updateExitingPaths();
-    }
-
-    function updateClosestPointHighlight(): void {
-        closestPointElement
-            .attr("visibility", closestPoint ? "visible" : "hidden");
-        if (closestPoint) {
-            const {x, y} = graphToSvg(graph.getLocation(closestPoint));
-            closestPointElement
-                .attr("cx", x)
-                .attr("cy", y);
-        }
-    }
-
-    function updateActivePathHighlight(): void {
+    function updateActivePathStartElement(): void {
+        const activePathStartElement = d3.select(".active-path-start-highlight");
         if (activePathStart) {
             const {x, y} = graphToSvg(graph.getLocation(activePathStart));
             activePathStartElement
@@ -177,7 +158,41 @@ function runDemo(
         }
     }
 
-    function updateActivePath(): void {
+    function createClosestPointElement(): void {
+        d3.select(svgElement).append("circle")
+            .classed("closest-point-highlight", true)
+            .attr("r", 10)
+            .attr("fill", "#FFB366")
+            .attr("opacity", 0.75);
+        updateClosestPointElement();
+    }
+
+    function updateClosestPointElement(): void {
+        const closestPointElement = d3.select(".closest-point-highlight");
+        closestPointElement
+            .attr("visibility", closestPoint ? "visible" : "hidden");
+        if (closestPoint) {
+            const {x, y} = graphToSvg(graph.getLocation(closestPoint));
+            closestPointElement
+                .attr("cx", x)
+                .attr("cy", y);
+        }
+    }
+
+    function createActivePathElement(): void {
+        d3.select(svgElement).append("path")
+            .classed("active-path", true)
+            .attr("stroke", "#D9822B")
+            .attr("stroke-width", 6)
+            .attr("stroke-linecap", "round")
+            .attr("stroke-linejoin", "round")
+            .attr("fill", "none")
+            .attr("opacity", 0.5);
+        updateActivePathElement();
+    }
+
+    function updateActivePathElement(): void {
+        const activePathElement = d3.select(".active-path");
         if (activePathStart && closestPoint) {
             const { locations } = graph.getShortestPath(activePathStart, closestPoint);
             activePathElement
@@ -231,23 +246,28 @@ function runDemo(
     function setUpMouseListeners(): void {
         svgElement.onmousedown = (event) => {
             activePathStart = closestPointForEvent(event);
-            update();
+            updateActivePathStartElement();
+            updateActivePathElement();
         };
         svgElement.onmousemove = (event) => {
             closestPoint = closestPointForEvent(event);
-            update();
+            updateClosestPointElement();
+            updateActivePathElement();
         };
         svgElement.onmouseup = () => {
             if (activePathStart && closestPoint) {
                 exitingPaths.push(graph.getShortestPath(activePathStart, closestPoint));
             }
             activePathStart = null;
-            update();
+            updateActivePathStartElement();
+            updateActivePathElement();
+            updateExitingPaths();
         };
         svgElement.onmouseleave = () => {
             activePathStart = null;
             closestPoint = null;
-            update();
+            updateActivePathStartElement();
+            updateActivePathElement();
         };
     }
 
@@ -260,6 +280,20 @@ function runDemo(
         };
         const graphLocation = svgToGraph(svgLocation);
         return graph.getClosestPoint(graphLocation);
+    }
+
+    function setUpResizeListener(): void {
+        // tslint:disable-next-line:no-unused-new
+        new ResizeSensor(svgElement.parentElement, () => {
+            const conversions = getConversionFunctions();
+            svgToGraph = conversions.svgToGraph;
+            graphToSvg = conversions.graphToSvg;
+            updateGraphElement();
+            updateClosestPointElement();
+            updateActivePathStartElement();
+            updateActivePathElement();
+            updateExitingPaths();
+        });
     }
 
     function startAnimationTicks(): void {
@@ -275,7 +309,7 @@ function runDemo(
 
     function advanceExitingPaths(dTime: number): void {
         if (exitingPaths.length > 0) {
-            const distanceGained = dTime * pathExitSpeed;
+            const distanceGained = dTime * getPathExitSpeed();
             const newPaths: Path[] = [];
             exitingPaths.forEach((path) => {
                 const newPath = graph.advanceAlongPath(path, distanceGained);
@@ -284,7 +318,16 @@ function runDemo(
                 }
             });
             exitingPaths = newPaths;
-            update();
+            updateExitingPaths();
         }
+    }
+
+    function getPathExitSpeed(): number {
+        // A path crossing the whole viewport on the diagonal should take this much time to disapear.
+        const diagonalExitTime = 10000;
+        const { x, y } = svgToGraph({ x: 0, y: 0 });
+        // Takes advantage of the fact that (0, 0) in graph coordinates is at the center of the svg.
+        const diagonalLength = 2 * Math.sqrt(x * x + y * y);
+        return diagonalLength / diagonalExitTime;
     }
 }
