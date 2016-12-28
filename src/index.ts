@@ -1,6 +1,6 @@
+import * as d3Request from "d3-request";
 import * as d3Selection from "d3-selection";
 import * as d3Shape from "d3-shape";
-import * as d3Request from "d3-request";
 import Graph, {
     EdgePoint,
     Location,
@@ -8,6 +8,7 @@ import Graph, {
     SimpleEdge,
     SimpleNode,
 } from "graphs-and-paths";
+
 const d3 = { ...d3Selection, ...d3Request, ...d3Shape };
 
 const DATA_JSON_FILE = "data/twin_peaks_2_mile.json";
@@ -69,14 +70,14 @@ function makeCoordinateConversionFunctions(graph: Graph) {
             return {
                 x: (location.x - svgCenter.x) * graphToSvgRatio,
                 y: (location.y - svgCenter.y) * graphToSvgRatio,
-            }
+            };
         },
     };
 }
 
 function getPathExitSpeed(svgToGraph: (location: Location) => Location) {
     // A path crossing the whole viewport on the diagonal should take this much time to disapear.
-    const diagonalExitTime = 1000;
+    const diagonalExitTime = 10000;
     const { x, y } = svgToGraph({ x: 0, y: 0 });
     // Takes advantage of the fact that (0, 0) in graph coordinates is at the center of the svg.
     const diagonalLength = 2 * Math.sqrt(x * x + y * y);
@@ -142,7 +143,8 @@ function runDemo(
             .attr("stroke-width", 6)
             .attr("stroke-linecap", "round")
             .attr("stroke-linejoin", "round")
-            .attr("fill", "none");
+            .attr("fill", "none")
+            .attr("opacity", 0.5);
     }
 
     function update(): void {
@@ -189,41 +191,64 @@ function runDemo(
     }
 
     function updateExitingPaths(): void {
-        const exitingPathSelection = d3.select(svgElement).selectAll(".exiting-path")
+        const pathGroups = d3.select(svgElement).selectAll(".exiting-path-group")
             .data(exitingPaths);
-        exitingPathSelection.enter().append("path")
+        const enteringPathGroups = pathGroups.enter().append("g")
+            .classed("exiting-path-group", true);
+        // Path
+        enteringPathGroups.append("path")
             .classed("exiting-path", true)
             .attr("stroke", "#D9822B")
             .attr("stroke-width", 6)
             .attr("stroke-linecap", "round")
             .attr("stroke-linejoin", "round")
-            .attr("fill", "none")
-            .merge(exitingPathSelection)
+            .attr("fill", "none");
+        pathGroups.select(".exiting-path")
             .attr("d", (path) => pathGenerator(path.locations.map(graphToSvg)));
-        exitingPathSelection.exit().remove();
+        // Start highlight
+        enteringPathGroups.append("circle")
+            .classed("exiting-path-start", true)
+            .attr("r", 10)
+            .attr("fill", "#D9822B")
+            .attr("opacity", 0.75);
+        pathGroups.select(".exiting-path-start")
+            .datum((path) => graphToSvg(path.locations[0]))
+            .attr("cx", (location) => location.x)
+            .attr("cy", (location) => location.y);
+        // End highlight
+        enteringPathGroups.append("circle")
+            .classed("exiting-path-end", true)
+            .attr("r", 10)
+            .attr("fill", "#D9822B")
+            .attr("opacity", 0.75);
+        pathGroups.select(".exiting-path-end")
+            .datum((path) => graphToSvg(path.locations[path.locations.length - 1]))
+            .attr("cx", (location) => location.x)
+            .attr("cy", (location) => location.y);
+        pathGroups.exit().remove();
     }
 
     function setUpMouseListeners(): void {
         svgElement.onmousedown = (event) => {
             activePathStart = closestPointForEvent(event);
             update();
-        }
+        };
         svgElement.onmousemove = (event) => {
             closestPoint = closestPointForEvent(event);
             update();
-        }
+        };
         svgElement.onmouseup = () => {
             if (activePathStart && closestPoint) {
                 exitingPaths.push(graph.getShortestPath(activePathStart, closestPoint));
             }
             activePathStart = null;
             update();
-        }
+        };
         svgElement.onmouseleave = () => {
             activePathStart = null;
             closestPoint = null;
             update();
-        }
+        };
     }
 
     function closestPointForEvent(event: MouseEvent): EdgePoint {
