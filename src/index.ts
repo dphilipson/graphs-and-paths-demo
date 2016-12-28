@@ -17,28 +17,26 @@ interface Dimensions {
     height: number;
 }
 
-const DATA_JSON_FILE = "data/twin_peaks_2_mile.json";
-
 const pathGenerator = d3.line<Location>()
     .x((location) => location.x)
     .y((location) => location.y);
 
-main();
+(window as any).demo = demo;
 
-function main(): void {
+function demo(selector: string, dataJsonFile: string): void {
     interface GraphData {
         nodes: SimpleNode[];
         edges: SimpleEdge[];
     }
 
-    d3.json(DATA_JSON_FILE, (error, data: GraphData) => {
+    d3.json(dataJsonFile, (error, data: GraphData) => {
         if (error) {
             throw error;
         }
-        const svgElement = d3.select("#demo").node() as HTMLElement;
-        if (!svgElement) {
-            throw new Error("Demo element not found");
-        }
+        const svgElement = d3.select(selector).append("svg")
+            .attr("width", "100%")
+            .attr("height", "100%")
+            .node() as HTMLElement;
         const { nodes, edges } = data;
         const graph = Graph.create(nodes, edges).withClosestPointMesh(25);
         const graphDimensions = getGraphDimensions(graph);
@@ -266,6 +264,7 @@ function runDemo(
         svgElement.onmouseleave = () => {
             activePathStart = null;
             closestPoint = null;
+            updateClosestPointElement();
             updateActivePathStartElement();
             updateActivePathElement();
         };
