@@ -9,6 +9,7 @@ import Graph, {
     SimpleEdge,
     SimpleNode,
 } from "graphs-and-paths";
+import "pepjs";
 
 const d3 = { ...d3Selection, ...d3Request, ...d3Shape };
 
@@ -36,6 +37,7 @@ function demo(selector: string, dataJsonFile: string): void {
         const svgElement = d3.select(selector).append("svg")
             .attr("width", "100%")
             .attr("height", "100%")
+            .attr("touch-action", "none")
             .node() as HTMLElement;
         const { nodes, edges } = data;
         const graph = Graph.create(nodes, edges).withClosestPointMesh(25);
@@ -205,6 +207,7 @@ function runDemo(
 
     function updateExitingPaths(): void {
         const pathGroups = d3.select(svgElement).selectAll(".exiting-path-group")
+            .attr("visibility", "visible")
             .data(exitingPaths);
         const enteringPathGroups = pathGroups.enter().append("g")
             .classed("exiting-path-group", true);
@@ -238,21 +241,31 @@ function runDemo(
             .datum((path) => graphToSvg(path.locations[path.locations.length - 1]))
             .attr("cx", (location) => location.x)
             .attr("cy", (location) => location.y);
-        pathGroups.exit().remove();
+        // Hide rather than remove finished paths to work around a pepjs bug if elements are
+        // removed before pointerup triggers (see https://github.com/jquery/PEP/issues/326). Only
+        // actually remove exited paths after a pointerup event.
+        pathGroups.exit().attr("visibility", "hidden");
+    }
+
+    function flushRemovedExitingPaths(): void {
+        // See above note in updateExistingPaths().
+        d3.select(svgElement).selectAll(".exiting-path-group")
+            .data(exitingPaths)
+            .exit().remove();
     }
 
     function setUpMouseListeners(): void {
-        svgElement.onmousedown = (event) => {
+        svgElement.addEventListener("pointerdown", (event) => {
             activePathStart = closestPointForEvent(event);
             updateActivePathStartElement();
             updateActivePathElement();
-        };
-        svgElement.onmousemove = (event) => {
+        });
+        svgElement.addEventListener("pointermove", (event) => {
             closestPoint = closestPointForEvent(event);
             updateClosestPointElement();
             updateActivePathElement();
-        };
-        svgElement.onmouseup = () => {
+        });
+        svgElement.addEventListener("pointerup", () => {
             if (activePathStart && closestPoint) {
                 exitingPaths.push(graph.getShortestPath(activePathStart, closestPoint));
             }
@@ -260,17 +273,18 @@ function runDemo(
             updateActivePathStartElement();
             updateActivePathElement();
             updateExitingPaths();
-        };
-        svgElement.onmouseleave = () => {
+            flushRemovedExitingPaths();
+        });
+        svgElement.addEventListener("pointerleave", () => {
             activePathStart = null;
             closestPoint = null;
             updateClosestPointElement();
             updateActivePathStartElement();
             updateActivePathElement();
-        };
+        });
     }
 
-    function closestPointForEvent(event: MouseEvent): EdgePoint {
+    function closestPointForEvent(event: PointerEvent): EdgePoint {
         const { clientX, clientY } = event;
         const { left, top } = svgElement.getBoundingClientRect();
         const svgLocation: Location = {
