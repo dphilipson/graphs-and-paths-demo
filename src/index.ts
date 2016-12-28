@@ -32,7 +32,7 @@ function main(): void {
         if (error) {
             throw error;
         }
-        const svgElement = document.getElementById("demo");
+        const svgElement = d3.select("#demo").node() as HTMLElement;
         if (!svgElement) {
             throw new Error("Demo element not found");
         }
@@ -105,18 +105,18 @@ function runDemo(
     startAnimationTicks();
 
     function renderGraph(): void {
-        const edgeSelection = d3.select(svgElement).selectAll(".edge")
-            .data(graph.getAllEdges());
-        edgeSelection.enter().append("path")
+        d3.select(svgElement).append("g")
+            .classed("graph-group", true)
+            .selectAll(".edge")
+            .data(graph.getAllEdges())
+            .enter().append("path")
             .classed("edge", true)
             .attr("stroke", "#5C7080")
             .attr("stroke-width", 3)
             .attr("stroke-linecap", "round")
             .attr("stroke-linejoin", "round")
             .attr("fill", "none")
-            .merge(edgeSelection)
             .attr("d", (edge) => pathGenerator(edge.locations.map(graphToSvg)));
-        edgeSelection.exit().remove();
     }
 
     function createActivePathStartElement() {
@@ -182,7 +182,9 @@ function runDemo(
                 .attr("visibility", "visible")
                 .attr("d", pathGenerator(locations.map(graphToSvg)) as string);
         } else {
-            activePathElement.attr("visibility", "hidden");
+            activePathElement
+                .attr("visibility", "hidden")
+                .attr("d", "");
         }
     }
 
