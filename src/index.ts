@@ -3,11 +3,8 @@ import * as d3Shape from "d3-shape";
 import * as d3Request from "d3-request";
 import * as d3Transition from "d3-transition";
 import Graph, {
-    Edge,
     EdgePoint,
     Location,
-    Node,
-    Path,
     SimpleEdge,
     SimpleNode,
 } from "graphs-and-paths";
@@ -19,6 +16,10 @@ const DATA_JSON_FILE = "data/twin_peaks_2_mile.json";
 const SVG_WIDTH = 960;
 const SVG_HEIGHT = 500;
 
+const pathGenerator = d3.line<Location>()
+    .x((location) => location.x)
+    .y((location) => location.y);
+
 main();
 
 function main(): void {
@@ -28,6 +29,9 @@ function main(): void {
     }
 
     d3.json(DATA_JSON_FILE, (error, data: GraphData) => {
+        if (error) {
+            throw error;
+        }
         const svgElement = document.getElementById("demo");
         if (!svgElement) {
             throw new Error("Demo element not found");
@@ -78,15 +82,14 @@ function runDemo(
     let activePathStart: EdgePoint | null = null;
     let closestPoint: EdgePoint | null = null;
 
-    renderInitialElements();
+    renderGraph();
+
+    let activePathStartElement = createActivePathStartElement();
+    let closestPointElement = createClosestPointElement();
+    let activePathElement = createActivePathElement();
+
     update();
     setUpMouseListeners();
-
-    function renderInitialElements(): void {
-        renderGraph();
-        appendClosestPointHighlight();
-        appendActivePath();
-    }
 
     function renderGraph(): void {
         const edgeSelection = d3.select(svgElement).selectAll(".edge")
@@ -99,26 +102,31 @@ function runDemo(
             .attr("stroke-linejoin", "round")
             .attr("fill", "none")
             .merge(edgeSelection)
-            .attr("d", (edge) =>
-                d3.line<Location>()
-                    .x((location) => location.x)
-                    .y((location) => location.y)(edge.locations.map(graphToSvg)));
+            .attr("d", (edge) => pathGenerator(edge.locations.map(graphToSvg)));
         edgeSelection.exit().remove();
     }
 
-    function appendClosestPointHighlight(): void {
-        d3.select(svgElement).append("circle")
-            .classed("closest-point-highlight", true)
+    function createActivePathStartElement() {
+        return d3.select(svgElement).append("circle")
+            .classed("active-path-start-highlight", true)
             .attr("r", 10)
-            .attr("fill", "#48AFF0")
+            .attr("fill", "#D9822B")
             .attr("opacity", 0.75);
     }
 
-    function appendActivePath(): void {
-        d3.select(svgElement).append("path")
+    function createClosestPointElement() {
+        return d3.select(svgElement).append("circle")
+            .classed("closest-point-highlight", true)
+            .attr("r", 10)
+            .attr("fill", "#FFB366")
+            .attr("opacity", 0.75);
+    }
+
+    function createActivePathElement() {
+        return d3.select(svgElement).append("path")
             .classed("active-path", true)
-            .attr("stroke", "blue")
-            .attr("stroke-width", 5)
+            .attr("stroke", "#D9822B")
+            .attr("stroke-width", 6)
             .attr("stroke-linecap", "round")
             .attr("stroke-linejoin", "round")
             .attr("fill", "none");
@@ -126,25 +134,41 @@ function runDemo(
 
     function update(): void {
         updateClosestPointHighlight();
+        updateActivePathHighlight();
         updateActivePath();
     }
 
     function updateClosestPointHighlight(): void {
-        const highlight = d3.select(svgElement).select(".closest-point-highlight")
-            .attr("visibility", location ? "visible" : "hidden");
+        closestPointElement
+            .attr("visibility", closestPoint ? "visible" : "hidden");
         if (closestPoint) {
-            const svgLocation = graphToSvg(graph.getLocation(closestPoint));
-            highlight
-                .attr("cx", svgLocation.x)
-                .attr("cy", svgLocation.y);
+            const {x, y} = graphToSvg(graph.getLocation(closestPoint));
+            closestPointElement
+                .attr("cx", x)
+                .attr("cy", y);
+        }
+    }
+
+    function updateActivePathHighlight(): void {
+        if (activePathStart) {
+            const {x, y} = graphToSvg(graph.getLocation(activePathStart));
+            activePathStartElement
+                .attr("visibility", "visible")
+                .attr("cx", x)
+                .attr("cy", y);
+        } else {
+            activePathStartElement.attr("visibility", "hidden");
         }
     }
 
     function updateActivePath(): void {
-        const activePath = d3.select(svgElement).select(".active-path");
         if (activePathStart && closestPoint) {
-            const { orientedEdges } = graph.getShortestPath(activePathStart, closestPoint);
-            // TODO: finish this
+            const { locations } = graph.getShortestPath(activePathStart, closestPoint);
+            activePathElement
+                .attr("visibility", "visible")
+                .attr("d", pathGenerator(locations.map(graphToSvg)) as string);
+        } else {
+            activePathElement.attr("visibility", "hidden");
         }
     }
 
@@ -157,11 +181,11 @@ function runDemo(
             closestPoint = closestPointForEvent(event);
             update();
         }
-        svgElement.onmouseup = (event) => {
+        svgElement.onmouseup = () => {
             activePathStart = null;
             update();
         }
-        svgElement.onmouseleave = (event) => {
+        svgElement.onmouseleave = () => {
             activePathStart = null;
             closestPoint = null;
             update();
