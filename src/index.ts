@@ -1,7 +1,6 @@
 import * as d3Selection from "d3-selection";
 import * as d3Shape from "d3-shape";
 import * as d3Request from "d3-request";
-import * as d3Transition from "d3-transition";
 import Graph, {
     EdgePoint,
     Location,
@@ -9,7 +8,7 @@ import Graph, {
     SimpleEdge,
     SimpleNode,
 } from "graphs-and-paths";
-const d3 = { ...d3Selection, ...d3Request, ...d3Shape, ...d3Transition };
+const d3 = { ...d3Selection, ...d3Request, ...d3Shape };
 
 const DATA_JSON_FILE = "data/twin_peaks_2_mile.json";
 
