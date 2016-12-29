@@ -226,8 +226,8 @@ function runDemo(
             .classed("exiting-path-start", true)
             .attr("r", 10)
             .attr("fill", "#D9822B")
-            .attr("opacity", 0.75);
-        pathGroups.select(".exiting-path-start")
+            .attr("opacity", 0.75)
+            .merge(pathGroups.select(".exiting-path-start"))
             .datum((path) => graphToSvg(path.locations[0]))
             .attr("cx", (location) => location.x)
             .attr("cy", (location) => location.y);
@@ -236,8 +236,8 @@ function runDemo(
             .classed("exiting-path-end", true)
             .attr("r", 10)
             .attr("fill", "#D9822B")
-            .attr("opacity", 0.75);
-        pathGroups.select(".exiting-path-end")
+            .attr("opacity", 0.75)
+            .merge(pathGroups.select(".exiting-path-end"))
             .datum((path) => graphToSvg(path.locations[path.locations.length - 1]))
             .attr("cx", (location) => location.x)
             .attr("cy", (location) => location.y);
