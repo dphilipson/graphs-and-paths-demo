@@ -36,7 +36,7 @@
     "d3-request": "^1.0.3",
     "d3-selection": "^1.0.3",
     "d3-shape": "^1.0.4",
-    "graphs-and-paths": "^0.1.4",
+    "graphs-and-paths": "^0.2.0",
     "pepjs": "^0.4.2"
   }
 }
