@@ -1,7 +1,7 @@
 module.exports = {
     entry: "./src/index.ts",
     output: {
-        filename: "dist/bundle.js",
+        filename: "docs/js/bundle.js",
     },
     resolve: {
         // Add '.ts' and '.tsx' as a resolvable extension.
@@ -12,6 +12,5 @@ module.exports = {
             // all files with a '.ts' or '.tsx' extension will be handled by 'ts-loader'
             { test: /\.tsx?$/, loader: "ts-loader" },
         ],
-    },
-    devtool: "source-map"
+    }
 };

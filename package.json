@@ -3,13 +3,12 @@
   "version": "0.1.0",
   "private": true,  
   "description": "A demo page for the graphs-and-paths library",
-  "main": "dist/index.js",
   "scripts": {
-    "clean": "rm -rf dist",
-    "build": "npm run packDist",
+    "clean": "rm -rf docs/js",
+    "build": "npm run packMin",
     "lint": "tslint --project .",
     "pack": "npm run clean && webpack --progress --colors",
-    "packDist": "npm run pack -- --optimize-minimize",
+    "packMin": "npm run pack -- --optimize-minimize",
     "test": "npm run lint",
     "watch": "npm run pack -- --watch"
   },
