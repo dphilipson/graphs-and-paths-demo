@@ -21,7 +21,14 @@ container {
     justify-content: center;
 }
 
+.body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 .svg-container {
+    align-self: stretch;
     display: flex;
     flex-direction: row;
     justify-content: center;
@@ -30,10 +37,27 @@ container {
 }
 
 .svg-skintight-wrapper {
-    position: relative;
     width: 960px;
     height: 500px;
     cursor: default;
     border: 2px solid #182026;
     background-color: #394B59;
+}
+
+.text-container {
+    max-width: 960px;
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+.description {
+    text-align: center;
+    margin-top: 12px;
+}
+
+.copyright {
+    text-align: center;
+    margin-top: 40px;
+    color: #BFCCD6;
+    margin-bottom: 12px;
 }
