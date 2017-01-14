@@ -325,7 +325,7 @@ function runDemo(
             const distanceGained = dTime * getPathExitSpeed();
             const newPaths: Path[] = [];
             exitingPaths.forEach((path) => {
-                const newPath = graph.advanceAlongPath(path, distanceGained);
+                const newPath = Graph.advanceAlongPath(path, distanceGained);
                 if (newPath.length > 0) {
                     newPaths.push(newPath);
                 }
